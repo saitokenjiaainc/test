@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>パターンA：シンプル一括追加</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #333; border-bottom: 2px solid #4CAF50; padding-bottom: 10px; }
+        .description { background: #e8f5e9; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f5f5f5; font-weight: bold; }
+        .checkbox { width: 40px; text-align: center; }
+        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+        .review-content { display: flex; gap: 10px; align-items: start; }
+        .review-image { width: 80px; height: 80px; background: #ddd; border-radius: 4px; }
+        .review-text { flex: 1; }
+        .review-text h4 { margin: 0 0 5px 0; color: #333; }
+        .review-text p { margin: 0; color: #666; font-size: 14px; }
+        .action-bar { display: flex; gap: 10px; margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-radius: 4px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #4CAF50; color: white; font-weight: bold; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; max-width: 500px; width: 90%; }
+        .modal-content h3 { margin-top: 0; color: #333; }
+        .favorite-list { margin: 20px 0; }
+        .favorite-item { padding: 8px 0; margin-bottom: 8px; display: block; }
+        .favorite-item input[type="checkbox"] { margin-right: 8px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .badge { background: #2196F3; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
+        .selected-count { color: #4CAF50; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>パターンA：シンプル一括追加</h1>
+        
+        <div class="description">
+            <strong>操作フロー：</strong><br>
+            1. テーブルで複数のレビューを選択（チェックボックス）<br>
+            2. 「お気に入りに追加」ボタンをクリック<br>
+            3. モーダルでお気に入りを選択（複数可）<br>
+            4. 選択した全レビューが、選択した全お気に入りに追加される
+        </div>
+
+        <div class="action-bar">
+            <span class="selected-count" id="selectedCount">0件選択中</span>
+            <button class="btn btn-primary" id="addToFavoriteBtn" disabled>お気に入りに追加</button>
+            <button class="btn btn-danger" id="removeFromFavoriteBtn" disabled>お気に入りから削除</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th class="checkbox"><input type="checkbox" id="selectAll"></th>
+                    <th>レビュー内容</th>
+                    <th>現在のお気に入り</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="checkbox"><input type="checkbox" class="review-checkbox"></td>
+                    <td>
+                        <div class="review-content">
+                            <div class="review-image"></div>
+                            <div class="review-text">
+                                <h4>レビュー1</h4>
+                                <p>とても良い商品でした。配送も早くて満足です。</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge">お気に入りA</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="checkbox"><input type="checkbox" class="review-checkbox"></td>
+                    <td>
+                        <div class="review-content">
+                            <div class="review-image"></div>
+                            <div class="review-text">
+                                <h4>レビュー2</h4>
+                                <p>品質が良く、コストパフォーマンスも最高です。</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge">お気に入りA</span>
+                        <span class="badge">お気に入りC</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="checkbox"><input type="checkbox" class="review-checkbox"></td>
+                    <td>
+                        <div class="review-content">
+                            <div class="review-image"></div>
+                            <div class="review-text">
+                                <h4>レビュー3</h4>
+                                <p>デザインがおしゃれで気に入っています。</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td>-</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- モーダル -->
+        <div class="modal" id="favoriteModal">
+            <div class="modal-content">
+                <h3>お気に入りを選択</h3>
+                <p>選択したレビュー全てに、以下のお気に入りを追加します</p>
+                <div class="favorite-list">
+                    <label class="favorite-item">
+                        <input type="checkbox" value="A">
+                        <strong>お気に入りA</strong> (キャンペーン用)
+                    </label>
+                    <label class="favorite-item">
+                        <input type="checkbox" value="B">
+                        <strong>お気に入りB</strong> (高評価レビュー)
+                    </label>
+                    <label class="favorite-item">
+                        <input type="checkbox" value="C">
+                        <strong>お気に入りC</strong> (商品ページ掲載用)
+                    </label>
+                    <label class="favorite-item">
+                        <input type="checkbox" value="D">
+                        <strong>お気に入りD</strong> (SNS投稿用)
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn" onclick="closeModal()">キャンセル</button>
+                    <button class="btn btn-primary" onclick="saveFavorites()">追加</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const checkboxes = document.querySelectorAll('.review-checkbox');
+        const selectAll = document.getElementById('selectAll');
+        const selectedCount = document.getElementById('selectedCount');
+        const addBtn = document.getElementById('addToFavoriteBtn');
+        const removeBtn = document.getElementById('removeFromFavoriteBtn');
+        const modal = document.getElementById('favoriteModal');
+
+        function updateSelectedCount() {
+            const count = Array.from(checkboxes).filter(cb => cb.checked).length;
+            selectedCount.textContent = `${count}件選択中`;
+            addBtn.disabled = count === 0;
+            removeBtn.disabled = count === 0;
+        }
+
+        checkboxes.forEach(cb => cb.addEventListener('change', updateSelectedCount));
+        selectAll.addEventListener('change', (e) => {
+            checkboxes.forEach(cb => cb.checked = e.target.checked);
+            updateSelectedCount();
+        });
+
+        addBtn.addEventListener('click', () => {
+            modal.classList.add('active');
+        });
+
+        function closeModal() {
+            modal.classList.remove('active');
+        }
+
+        function saveFavorites() {
+            alert('選択したレビューをお気に入りに追加しました！');
+            closeModal();
+        }
+    </script>
+</body>
+</html>

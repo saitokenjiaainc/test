@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>パターンD：インライン編集</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #333; border-bottom: 2px solid #00BCD4; padding-bottom: 10px; }
+        .description { background: #e0f7fa; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+        .action-bar { 
+            position: sticky; 
+            top: 0; 
+            background: white; 
+            padding: 15px; 
+            border-bottom: 2px solid #ddd; 
+            margin-bottom: 20px; 
+            z-index: 10;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #00BCD4; color: white; font-weight: bold; }
+        .btn-secondary { background: #607D8B; color: white; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .changes-indicator { color: #FF5722; font-weight: bold; margin-left: auto; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f5f5f5; font-weight: bold; position: sticky; top: 60px; z-index: 5; }
+        .review-content { display: flex; gap: 10px; align-items: start; min-width: 300px; }
+        .review-image { width: 60px; height: 60px; background: #ddd; border-radius: 4px; flex-shrink: 0; }
+        .review-text { flex: 1; }
+        .review-text h4 { margin: 0 0 5px 0; color: #333; font-size: 14px; }
+        .review-text p { margin: 0; color: #666; font-size: 12px; }
+        .favorite-checkboxes { display: flex; flex-wrap: wrap; gap: 12px; min-width: 500px; }
+        .favorite-checkbox { 
+            display: flex; 
+            align-items: center; 
+            padding: 6px 10px; 
+            background: #f9f9f9; 
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .favorite-checkbox:hover { background: #e8f5e9; }
+        .favorite-checkbox input[type="checkbox"] { 
+            width: 16px; 
+            height: 16px; 
+            cursor: pointer; 
+            margin-right: 6px;
+        }
+        .favorite-checkbox label { cursor: pointer; font-size: 13px; user-select: none; }
+        tr.changed { background: #fff9c4; }
+        tr.changed td { border-left: 3px solid #FFC107; }
+        .info-box { background: #e3f2fd; padding: 10px; border-left: 4px solid #2196F3; margin-bottom: 15px; }
+        .legend { display: flex; gap: 20px; margin-bottom: 15px; font-size: 13px; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-color { width: 20px; height: 20px; border-radius: 3px; }
+        .color-changed { background: #fff9c4; border: 2px solid #FFC107; }
+        .color-normal { background: white; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>パターンD：インライン編集</h1>
+        
+        <div class="description">
+            <strong>操作フロー：</strong><br>
+            1. テーブル上で直接お気に入りをチェック/アンチェック<br>
+            2. 複数のレビューを編集可能<br>
+            3. 「変更を保存」ボタンで一括更新<br>
+            <br>
+            <strong>特徴：</strong> モーダル不要で直感的。スプレッドシート感覚で操作できる。
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color color-normal"></div>
+                <span>変更なし</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color color-changed"></div>
+                <span>変更あり（保存前）</span>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <button class="btn btn-primary" id="saveBtn" disabled>変更を保存</button>
+            <button class="btn btn-secondary" id="resetBtn" disabled>変更を破棄</button>
+            <span class="changes-indicator" id="changesIndicator"></span>
+        </div>
+
+        <div class="info-box">
+            <strong>💡 操作のヒント：</strong> チェックを入れると追加、チェックを外すと削除されます。変更は「変更を保存」ボタンを押すまで反映されません。
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>レビュー内容</th>
+                    <th>お気に入り設定</th>
+                </tr>
+            </thead>
+            <tbody id="reviewTable">
+                <!-- JavaScriptで動的生成 -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const reviews = [
+            { 
+                id: 1, 
+                name: 'レビュー1', 
+                text: 'とても良い商品でした。配送も早くて満足です。',
+                favorites: ['A'] 
+            },
+            { 
+                id: 2, 
+                name: 'レビュー2', 
+                text: '品質が良く、コストパフォーマンスも最高です。',
+                favorites: ['A', 'C'] 
+            },
+            { 
+                id: 3, 
+                name: 'レビュー3', 
+                text: 'デザインがおしゃれで気に入っています。',
+                favorites: [] 
+            },
+            { 
+                id: 4, 
+                name: 'レビュー4', 
+                text: 'リピート購入しました。安定の品質です。',
+                favorites: ['B'] 
+            },
+            { 
+                id: 5, 
+                name: 'レビュー5', 
+                text: '家族全員で気に入っています。',
+                favorites: ['A', 'B', 'D'] 
+            }
+        ];
+
+        const allFavorites = [
+            { id: 'A', name: 'お気に入りA', description: '(キャンペーン用)' },
+            { id: 'B', name: 'お気に入りB', description: '(高評価レビュー)' },
+            { id: 'C', name: 'お気に入りC', description: '(商品ページ掲載用)' },
+            { id: 'D', name: 'お気に入りD', description: '(SNS投稿用)' }
+        ];
+
+        const reviewTable = document.getElementById('reviewTable');
+        const saveBtn = document.getElementById('saveBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const changesIndicator = document.getElementById('changesIndicator');
+
+        // 初期状態を保存
+        const initialState = {};
+        reviews.forEach(review => {
+            initialState[review.id] = [...review.favorites];
+        });
+
+        // テーブルを生成
+        function renderTable() {
+            reviewTable.innerHTML = '';
+            reviews.forEach(review => {
+                const tr = document.createElement('tr');
+                tr.dataset.reviewId = review.id;
+                
+                tr.innerHTML = `
+                    <td>
+                        <div class="review-content">
+                            <div class="review-image"></div>
+                            <div class="review-text">
+                                <h4>${review.name}</h4>
+                                <p>${review.text}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="favorite-checkboxes">
+                            ${allFavorites.map(fav => `
+                                <div class="favorite-checkbox">
+                                    <input 
+                                        type="checkbox" 
+                                        id="review${review.id}_fav${fav.id}"
+                                        value="${fav.id}"
+                                        data-review-id="${review.id}"
+                                        ${review.favorites.includes(fav.id) ? 'checked' : ''}
+                                    >
+                                    <label for="review${review.id}_fav${fav.id}">
+                                        ${fav.name} <span style="color: #999; font-size: 11px;">${fav.description}</span>
+                                    </label>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </td>
+                `;
+                
+                reviewTable.appendChild(tr);
+            });
+
+            // チェックボックスにイベントリスナーを追加
+            document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', handleCheckboxChange);
+            });
+        }
+
+        function handleCheckboxChange(e) {
+            const reviewId = parseInt(e.target.dataset.reviewId);
+            const favoriteId = e.target.value;
+            const review = reviews.find(r => r.id === reviewId);
+            
+            if (e.target.checked) {
+                if (!review.favorites.includes(favoriteId)) {
+                    review.favorites.push(favoriteId);
+                }
+            } else {
+                review.favorites = review.favorites.filter(f => f !== favoriteId);
+            }
+            
+            updateUI();
+        }
+
+        function updateUI() {
+            let changedCount = 0;
+            
+            reviews.forEach(review => {
+                const tr = document.querySelector(`tr[data-review-id="${review.id}"]`);
+                const initial = initialState[review.id].sort().join(',');
+                const current = review.favorites.sort().join(',');
+                
+                if (initial !== current) {
+                    tr.classList.add('changed');
+                    changedCount++;
+                } else {
+                    tr.classList.remove('changed');
+                }
+            });
+            
+            saveBtn.disabled = changedCount === 0;
+            resetBtn.disabled = changedCount === 0;
+            
+            if (changedCount > 0) {
+                changesIndicator.textContent = `${changedCount}件のレビューに変更があります`;
+            } else {
+                changesIndicator.textContent = '';
+            }
+        }
+
+        saveBtn.addEventListener('click', () => {
+            // 変更があったレビューだけを抽出
+            const changedReviews = reviews.filter(review => {
+                const initial = initialState[review.id].sort().join(',');
+                const current = review.favorites.sort().join(',');
+                return initial !== current;
+            });
+            
+            console.log('送信データ:', {
+                items: changedReviews.map(r => ({
+                    review_content_id: r.id,
+                    review_favorite_ids: r.favorites
+                }))
+            });
+            
+            // 初期状態を更新
+            reviews.forEach(review => {
+                initialState[review.id] = [...review.favorites];
+            });
+            
+            alert(`${changedReviews.length}件のレビューを保存しました！`);
+            updateUI();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            if (!confirm('変更を破棄してもよろしいですか？')) return;
+            
+            // 初期状態に戻す
+            reviews.forEach(review => {
+                review.favorites = [...initialState[review.id]];
+            });
+            
+            renderTable();
+            updateUI();
+        });
+
+        // 初期描画
+        renderTable();
+        updateUI();
+    </script>
+</body>
+</html>

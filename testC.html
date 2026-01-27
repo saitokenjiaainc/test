@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>パターンC：段階的操作</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #333; border-bottom: 2px solid #9C27B0; padding-bottom: 10px; }
+        .description { background: #f3e5f5; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+        .operation-log { background: #fff; border: 2px solid #9C27B0; border-radius: 4px; padding: 15px; margin-bottom: 20px; }
+        .operation-log h3 { margin-top: 0; color: #9C27B0; }
+        .operation-step { padding: 10px; margin-bottom: 10px; background: #f9f9f9; border-left: 4px solid #9C27B0; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f5f5f5; font-weight: bold; }
+        .checkbox { width: 40px; text-align: center; }
+        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+        .review-content { display: flex; gap: 10px; align-items: start; }
+        .review-image { width: 80px; height: 80px; background: #ddd; border-radius: 4px; }
+        .review-text { flex: 1; }
+        .review-text h4 { margin: 0 0 5px 0; color: #333; }
+        .review-text p { margin: 0; color: #666; font-size: 14px; }
+        .action-bar { display: flex; gap: 10px; margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-radius: 4px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #9C27B0; color: white; font-weight: bold; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; max-width: 500px; width: 90%; }
+        .modal-content h3 { margin-top: 0; color: #333; }
+        .favorite-list { margin: 20px 0; }
+        .favorite-item { padding: 8px 0; margin-bottom: 8px; display: block; }
+        .favorite-item input[type="checkbox"] { margin-right: 8px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .badge { background: #2196F3; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
+        .selected-count { color: #9C27B0; font-weight: bold; }
+        .info-box { background: #e1f5fe; padding: 10px; border-left: 4px solid #03A9F4; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>パターンC：段階的操作</h1>
+        
+        <div class="description">
+            <strong>操作フロー：</strong><br>
+            複数回に分けて操作します。各回で異なるレビューと異なるお気に入りを選択可能。<br>
+            <br>
+            <strong>例：</strong><br>
+            1回目：レビュー1,3を選択 → お気に入りBに追加<br>
+            2回目：レビュー2,3を選択 → お気に入りAに追加<br>
+            →結果：レビュー1はB、レビュー2はA、レビュー3はA,Bに登録される
+        </div>
+
+        <div class="operation-log">
+            <h3>操作履歴</h3>
+            <div id="operationLog">
+                <p style="color: #999;">まだ操作していません</p>
+            </div>
+        </div>
+
+        <div class="action-bar">
+            <span class="selected-count" id="selectedCount">0件選択中</span>
+            <button class="btn btn-primary" id="addToFavoriteBtn" disabled>お気に入りに追加</button>
+        </div>
+
+        <div class="info-box">
+            <strong>💡 ポイント：</strong> 何度でも追加できます。既存のお気に入りはそのまま残り、新しいお気に入りが追加されます。
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th class="checkbox"><input type="checkbox" id="selectAll"></th>
+                    <th>レビュー内容</th>
+                    <th>現在のお気に入り</th>
+                </tr>
+            </thead>
+            <tbody id="reviewTable">
+                <tr>
+                    <td class="checkbox"><input type="checkbox" class="review-checkbox" data-id="1" data-review="レビュー1"></td>
+                    <td>
+                        <div class="review-content">
+                            <div class="review-image"></div>
+                            <div class="review-text">
+                                <h4>レビュー1</h4>
+                                <p>とても良い商品でした。配送も早くて満足です。</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="favorites-cell" data-id="1">-</td>
+                </tr>
+                <tr>
+                    <td class="checkbox"><input type="checkbox" class="review-checkbox" data-id="2" data-review="レビュー2"></td>
+                    <td>
+                        <div class="review-content">
+                            <div class="review-image"></div>
+                            <div class="review-text">
+                                <h4>レビュー2</h4>
+                                <p>品質が良く、コストパフォーマンスも最高です。</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="favorites-cell" data-id="2">-</td>
+                </tr>
+                <tr>
+                    <td class="checkbox"><input type="checkbox" class="review-checkbox" data-id="3" data-review="レビュー3"></td>
+                    <td>
+                        <div class="review-content">
+                            <div class="review-image"></div>
+                            <div class="review-text">
+                                <h4>レビュー3</h4>
+                                <p>デザインがおしゃれで気に入っています。</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="favorites-cell" data-id="3">-</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- モーダル -->
+        <div class="modal" id="favoriteModal">
+            <div class="modal-content">
+                <h3>お気に入りを選択</h3>
+                <p>選択したレビュー全てに、以下のお気に入りを追加します</p>
+                <div class="favorite-list">
+                    <label class="favorite-item">
+                        <input type="checkbox" name="favorite" value="A">
+                        <strong>お気に入りA</strong> (キャンペーン用)
+                    </label>
+                    <label class="favorite-item">
+                        <input type="checkbox" name="favorite" value="B">
+                        <strong>お気に入りB</strong> (高評価レビュー)
+                    </label>
+                    <label class="favorite-item">
+                        <input type="checkbox" name="favorite" value="C">
+                        <strong>お気に入りC</strong> (商品ページ掲載用)
+                    </label>
+                    <label class="favorite-item">
+                        <input type="checkbox" name="favorite" value="D">
+                        <strong>お気に入りD</strong> (SNS投稿用)
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn" onclick="closeModal()">キャンセル</button>
+                    <button class="btn btn-primary" onclick="saveFavorites()">追加</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const checkboxes = document.querySelectorAll('.review-checkbox');
+        const selectAll = document.getElementById('selectAll');
+        const selectedCount = document.getElementById('selectedCount');
+        const addBtn = document.getElementById('addToFavoriteBtn');
+        const modal = document.getElementById('favoriteModal');
+        const operationLog = document.getElementById('operationLog');
+        
+        let operationCount = 0;
+        let reviewFavorites = { 1: [], 2: [], 3: [] };
+
+        function updateSelectedCount() {
+            const count = Array.from(checkboxes).filter(cb => cb.checked).length;
+            selectedCount.textContent = `${count}件選択中`;
+            addBtn.disabled = count === 0;
+        }
+
+        checkboxes.forEach(cb => cb.addEventListener('change', updateSelectedCount));
+        selectAll.addEventListener('change', (e) => {
+            checkboxes.forEach(cb => cb.checked = e.target.checked);
+            updateSelectedCount();
+        });
+
+        addBtn.addEventListener('click', () => {
+            modal.classList.add('active');
+        });
+
+        function closeModal() {
+            modal.classList.remove('active');
+            document.querySelectorAll('input[name="favorite"]').forEach(cb => cb.checked = false);
+        }
+
+        function saveFavorites() {
+            const selectedReviews = Array.from(checkboxes).filter(cb => cb.checked);
+            const selectedFavorites = Array.from(document.querySelectorAll('input[name="favorite"]:checked')).map(cb => cb.value);
+            
+            if (selectedFavorites.length === 0) {
+                alert('お気に入りを選択してください');
+                return;
+            }
+
+            operationCount++;
+            
+            // 操作ログに追加
+            const reviewNames = selectedReviews.map(cb => cb.dataset.review).join(', ');
+            const favoriteNames = selectedFavorites.map(f => `お気に入り${f}`).join(', ');
+            
+            if (operationCount === 1) {
+                operationLog.innerHTML = '';
+            }
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'operation-step';
+            logEntry.innerHTML = `<strong>${operationCount}回目：</strong> ${reviewNames} → ${favoriteNames}に追加`;
+            operationLog.appendChild(logEntry);
+            
+            // お気に入りを更新
+            selectedReviews.forEach(cb => {
+                const reviewId = parseInt(cb.dataset.id);
+                selectedFavorites.forEach(f => {
+                    if (!reviewFavorites[reviewId].includes(f)) {
+                        reviewFavorites[reviewId].push(f);
+                    }
+                });
+                
+                // テーブルを更新
+                const cell = document.querySelector(`.favorites-cell[data-id="${reviewId}"]`);
+                if (reviewFavorites[reviewId].length > 0) {
+                    cell.innerHTML = reviewFavorites[reviewId].map(f => `<span class="badge">お気に入り${f}</span>`).join('');
+                }
+            });
+            
+            // チェックを外す
+            checkboxes.forEach(cb => cb.checked = false);
+            selectAll.checked = false;
+            updateSelectedCount();
+            
+            closeModal();
+        }
+    </script>
+</body>
+</html>
