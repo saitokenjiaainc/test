@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>現状の拡張版：複数選択対応（バックエンド修正なし）</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #333; border-bottom: 2px solid #607D8B; padding-bottom: 10px; }
+        .description { background: #eceff1; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+        .warning-box { background: #fff3e0; padding: 15px; border-left: 4px solid #FF9800; margin-bottom: 20px; }
+        .warning-box strong { color: #E65100; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f5f5f5; font-weight: bold; }
+        .checkbox { width: 40px; text-align: center; }
+        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+        .review-content { display: flex; gap: 10px; align-items: start; }
+        .review-image { width: 80px; height: 80px; background: #ddd; border-radius: 4px; }
+        .review-text { flex: 1; }
+        .review-text h4 { margin: 0 0 5px 0; color: #333; }
+        .review-text p { margin: 0; color: #666; font-size: 14px; }
+        .action-bar { display: flex; gap: 10px; margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-radius: 4px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #607D8B; color: white; font-weight: bold; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; max-width: 500px; width: 90%; }
+        .modal-content h3 { margin-top: 0; color: #333; }
+        .favorite-list { margin: 20px 0; }
+        .favorite-item { padding: 8px 0; margin-bottom: 8px; display: block; }
+        .favorite-item input[type="checkbox"] { margin-right: 8px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .badge { background: #2196F3; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
+        .selected-count { color: #607D8B; font-weight: bold; }
+        .info-box { background: #e3f2fd; padding: 10px; border-left: 4px solid #2196F3; margin-bottom: 15px; }
+        .cost-badge { background: #4CAF50; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <span class="cost-badge">実装コスト：最小（BE修正なし）</span>
+        <h1>現状の拡張版：複数選択対応（バックエンド修正なし）</h1>
+        
+        <div class="description">
+            <strong>位置づけ：</strong><br>
+            現状の機能を、バックエンドは一切変更せずに、フロントエンドだけで複数選択に対応したバージョン。<br>
+            最も早く実装できるが、「追加」ではなく「設定（置き換え）」になる点に注意。
+            <br><br>
+            <strong>操作フロー：</strong><br>
+            1. テーブルで複数のレビューを選択（チェックボックス）<br>
+            2. 「お気に入りに設定」ボタンをクリック<br>
+            3. モーダルでお気に入りを選択（複数可）<br>
+            4. 選択した全レビューのお気に入りが、指定したものに置き換わる
+        </div>
+
+        <div class="warning-box">
+            <strong>⚠️ 重要な注意点：</strong><br>
+            このパターンでは、選択したレビューの<strong>既存のお気に入りは全て削除</strong>されます。<br>
+            「追加」ではなく「設定（全置き換え）」です。<br>
+            <br>
+            <strong>例：</strong><br>
+            レビュー1が既にお気に入り[A]に登録されている状態で、お気に入り[B,C]を選択すると<br>
+            → レビュー1はお気に入り[B,C]のみになり、[A]は削除されます
+        </div>
+
+        <div class="info-box">
+            <strong>💡 使用例：</strong> 「選択したレビューのお気に入りを、全てB,Cに統一したい」という用途に最適
+        </div>
+
+        <div class="action-bar">
+            <span class="selected-count" id="selectedCount">0件選択中</span>
+            <button class="btn btn-primary" id="setFavoriteBtn" disabled>お気に入りに設定（置き換え）</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th class="checkbox"><input type="checkbox" id="selectAll"></th>
+                    <th>レビュー内容</th>
+                    <th>現在のお気に入り</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="checkbox"><input type="checkbox" class="review-checkbox"></td>
+                    <td>
+                        <div class="review-content">
+                            <div class="review-image"></div>
+                            <div class="review-text">
+                                <h4>レビュー1</h4>
+                                <p>とても良い商品でした。配送も早くて満足です。</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge">お気に入りA</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="checkbox"><input type="checkbox" class="review-checkbox"></td>
+                    <td>
+                        <div class="review-content">
+                            <div class="review-image"></div>
+                            <div class="review-text">
+                                <h4>レビュー2</h4>
+                                <p>品質が良く、コストパフォーマンスも最高です。</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge">お気に入りA</span>
+                        <span class="badge">お気に入りC</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="checkbox"><input type="checkbox" class="review-checkbox"></td>
+                    <td>
+                        <div class="review-content">
+                            <div class="review-image"></div>
+                            <div class="review-text">
+                                <h4>レビュー3</h4>
+                                <p>デザインがおしゃれで気に入っています。</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td>-</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- モーダル -->
+        <div class="modal" id="favoriteModal">
+            <div class="modal-content">
+                <h3>お気に入りを設定</h3>
+                <p style="color: #E65100; font-weight: bold;">⚠️ 既存のお気に入りは削除され、選択したものに置き換わります</p>
+                <p>選択したレビュー全てに、以下のお気に入りを設定します</p>
+                <div class="favorite-list">
+                    <label class="favorite-item">
+                        <input type="checkbox" value="A">
+                        お気に入りA (キャンペーン用)
+                    </label>
+                    <label class="favorite-item">
+                        <input type="checkbox" value="B">
+                        お気に入りB (高評価レビュー)
+                    </label>
+                    <label class="favorite-item">
+                        <input type="checkbox" value="C">
+                        お気に入りC (商品ページ掲載用)
+                    </label>
+                    <label class="favorite-item">
+                        <input type="checkbox" value="D">
+                        お気に入りD (SNS投稿用)
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn" onclick="closeModal()">キャンセル</button>
+                    <button class="btn btn-primary" onclick="setFavorites()">設定（置き換え）</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const checkboxes = document.querySelectorAll('.review-checkbox');
+        const selectAll = document.getElementById('selectAll');
+        const selectedCount = document.getElementById('selectedCount');
+        const setBtn = document.getElementById('setFavoriteBtn');
+        const modal = document.getElementById('favoriteModal');
+
+        function updateSelectedCount() {
+            const count = Array.from(checkboxes).filter(cb => cb.checked).length;
+            selectedCount.textContent = `${count}件選択中`;
+            setBtn.disabled = count === 0;
+        }
+
+        checkboxes.forEach(cb => cb.addEventListener('change', updateSelectedCount));
+        selectAll.addEventListener('change', (e) => {
+            checkboxes.forEach(cb => cb.checked = e.target.checked);
+            updateSelectedCount();
+        });
+
+        setBtn.addEventListener('click', () => {
+            modal.classList.add('active');
+        });
+
+        function closeModal() {
+            modal.classList.remove('active');
+        }
+
+        function setFavorites() {
+            const selectedFavorites = Array.from(document.querySelectorAll('.favorite-list input:checked')).map(cb => cb.value);
+            if (selectedFavorites.length === 0) {
+                alert('お気に入りを選択してください');
+                return;
+            }
+            alert('選択したレビューのお気に入りを設定（置き換え）しました！\n\n⚠️ 既存のお気に入りは削除されました');
+            closeModal();
+        }
+    </script>
+</body>
+</html>
