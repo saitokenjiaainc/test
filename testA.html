@@ -22,7 +22,6 @@
         .action-bar { display: flex; gap: 10px; margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-radius: 4px; }
         .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
         .btn-primary { background: #4CAF50; color: white; font-weight: bold; }
-        .btn-danger { background: #f44336; color: white; }
         .btn:disabled { background: #ccc; cursor: not-allowed; }
         .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
         .modal.active { display: flex; }
@@ -51,7 +50,6 @@
         <div class="action-bar">
             <span class="selected-count" id="selectedCount">0件選択中</span>
             <button class="btn btn-primary" id="addToFavoriteBtn" disabled>お気に入りに追加</button>
-            <button class="btn btn-danger" id="removeFromFavoriteBtn" disabled>お気に入りから削除</button>
         </div>
 
         <table>
@@ -146,14 +144,12 @@
         const selectAll = document.getElementById('selectAll');
         const selectedCount = document.getElementById('selectedCount');
         const addBtn = document.getElementById('addToFavoriteBtn');
-        const removeBtn = document.getElementById('removeFromFavoriteBtn');
         const modal = document.getElementById('favoriteModal');
 
         function updateSelectedCount() {
             const count = Array.from(checkboxes).filter(cb => cb.checked).length;
             selectedCount.textContent = `${count}件選択中`;
             addBtn.disabled = count === 0;
-            removeBtn.disabled = count === 0;
         }
 
         checkboxes.forEach(cb => cb.addEventListener('change', updateSelectedCount));
